@@ -10,7 +10,7 @@ namespace Lebran\Di;
  * @license    GNU Licence
  * @copyright  2014 - 2015 Roman Kritskiy
  */
-trait Injectable
+trait InjectableTrait
 {
     /**
      * Store for di container.

@@ -1,0 +1,25 @@
+{
+    "name": "lebran/di",
+    "description": "The simple di for lebran projects.",
+    "keywords": ["di", "dependency injection", "container"],
+    "homepage": "https://vk.com/id126790791",
+    "license": "MIT",
+    "support": {
+        "issues": "https://github.com/lebran/di/issues",
+        "source": "https://github.com/lebran/di"
+    },
+    "type": "library",
+    "authors": [
+        {
+            "email": "itoktor@gmail.com",
+            "name": "Roman Kritskiy",
+            "role": "Lead"
+        }
+    ],
+    "autoload": {
+        "psr-4": { "Lebran\\Di\\": "src/" }
+    },
+    "require": {
+        "php": ">=5.5"
+    }
+}

@@ -39,6 +39,18 @@ class Container implements \ArrayAccess
     protected $services = [];
 
     /**
+     * Initialisation.
+     *
+     * @param array $configs Config for services if needed.
+     */
+    final public function __construct(array $configs = [])
+    {
+        if(method_exists($this, 'register')){
+            $this->register($configs);
+        }
+    }
+
+    /**
      * Registers a service in the services container.
      *
      * @param string $name       Service name.

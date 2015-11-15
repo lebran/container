@@ -1,5 +1,7 @@
 <?php
-namespace Lebran\Di;
+namespace Lebran\Container;
+
+use Lebran\Container;
 
 /**
  * It's trait help you realize InjectableInterface.
@@ -22,11 +24,11 @@ trait InjectableTrait
     /**
      * Sets the dependency injection container.
      *
-     * @param object $di Container object.
+     * @param Container $di Container object.
      *
-     * @return object
+     * @return self
      */
-    public function setDi($di)
+    public function setDi(Container $di)
     {
         $this->di = $di;
         return $this;
@@ -35,7 +37,7 @@ trait InjectableTrait
     /**
      * Returns the dependency injection container.
      *
-     * @return object Container object.
+     * @return Container object.
      */
     public function getDi()
     {

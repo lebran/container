@@ -1,5 +1,7 @@
 <?php
-namespace Lebran\Di;
+namespace Lebran\Container;
+
+use Lebran\Container;
 
 /**
  * This interface must be implemented in those classes that need internal dependency injection container.
@@ -15,16 +17,16 @@ interface InjectableInterface
     /**
      * Sets the dependency injection container.
      *
-     * @param object $di Container object.
+     * @param Container $di Container object.
      *
      * @return void
      */
-    public function setDi($di);
+    public function setDi(Container $di);
 
     /**
      * Returns the dependency injection container.
      *
-     * @return object Container object.
+     * @return Container object.
      */
     public function getDi();
 }

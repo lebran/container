@@ -17,9 +17,10 @@
         }
     ],
     "autoload": {
-        "psr-4": { "Lebran\\Di\\": "src/" }
+        "psr-4": { "Lebran\\": "src/" }
     },
     "require": {
-        "php": ">=5.5"
+        "php": ">=5.5",
+        "container-interop/container-interop": "*"
     }
 }

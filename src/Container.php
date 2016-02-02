@@ -4,6 +4,8 @@ namespace Lebran;
 use Closure;
 use ArrayAccess;
 use ReflectionClass;
+use ReflectionMethod;
+use ReflectionFunction;
 use Lebran\Container\NotFoundException;
 use Lebran\Container\InjectableInterface;
 use Interop\Container\ContainerInterface;
@@ -142,6 +144,36 @@ class Container implements ContainerInterface, ArrayAccess
         }
 
         return $instance;
+    }
+
+    /**
+     *
+     *
+     * @param callable $callback
+     * @param array    $params
+     *
+     * @return mixed
+     * @throws ContainerException Error while retrieving the entry.
+     * @throws NotFoundException No entry was found for this identifier.
+     */
+    public function call(callable $callback, array $params = [])
+    {
+        if (is_string($callback) && strpos($callback, '::') === true) {
+            $callback = explode('::', $callback);
+        }
+        if (is_array($callback)) {
+            $reflection = new ReflectionMethod($callback[0], $callback[1]);
+        } else {
+            $reflection = new ReflectionFunction($callback);
+        }
+
+        return call_user_func_array(
+            $callback,
+            $this->resolveOptions(
+                $reflection->getParameters(),
+                $params
+            )
+        );
     }
 
     /**

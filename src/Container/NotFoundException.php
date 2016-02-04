@@ -5,9 +5,13 @@ use Exception;
 use Interop\Container\Exception\NotFoundException as NotFoundExceptionInterface;
 
 /**
- * Class NotFoundException
+ * No entry was found in the container.
  *
- * @package Lebran\Di\Exception
+ * @package    Container
+ * @version    1.0
+ * @author     Roman Kritskiy <itoktor@gmail.com>
+ * @license    MIT
+ * @copyright  2015 - 2016 Roman Kritskiy
  */
 class NotFoundException extends Exception implements NotFoundExceptionInterface
 {

@@ -12,55 +12,58 @@ use Interop\Container\ContainerInterface;
 use Lebran\Container\ServiceProviderInterface;
 
 /**
- * Lebran\Di it's a component that implements Dependency Injection/Service Location patterns.
- * Supports string, object and anonymous function definition. Allows using the array syntax.
+ * Lebran\Container it's a component that implements Dependency Injection/Service Location patterns.
+ * Supports string, object and anonymous function definition. Allows using the array and magical syntax.
  *
- *                              Examples
+ *                              Example
  *  <code>
- *      $di = \Lebran\Di\Container();
+ *      // Create service container
+ *      $di = new \Lebran\Container();
  *
- *      // Using string definition
- *      $di->set('test', '\Lebran\App\TestController');
+ *      // Container supports 3 types of definition
  *
- *      // Using object definition (singleton)
- *      $di->set('test',  new \Lebran\App\TestController('param1'));
+ *      // Type 1: Object
+ *      $di->set('myservice', new \MyNamespace\MyService());
  *
- *      // Using anonymous function definition
- *      $di->set('test',  function ($param1, $param2) {
- *          return new \Lebran\App\TestController($param1, $param2)
+ *      // Type 2: String
+ *      $di->set('myservice2', '\MyNamespace\MyService2');
+ *
+ *      // Type 3: Closure
+ *      $di->set('myservice3', function(){
+ *          return new \MyNamespace\MyService3();
  *      });
  *
+ *      // Getting service
+ *      $di->get('myservice');
  *  </code>
  *
- * @package    Di
- * @version    2.0.0
+ * @package    Container
+ * @version    1.0
  * @author     Roman Kritskiy <itoktor@gmail.com>
- * @license    GNU Licence
- * @copyright  2014 - 2015 Roman Kritskiy
+ * @license    MIT
+ * @copyright  2015 - 2016 Roman Kritskiy
  */
 class Container implements ContainerInterface, ArrayAccess
 {
     /**
-     * @var self
+     * @var self Store for last container instance
      */
     protected static $instance;
 
     /**
-     * Store services.
-     *
-     * @var array
+     * @var array Store for services.
      */
     protected $services = [];
 
     /**
-     * @var array
+     * @var array Store for shared services.
      */
     protected $shared = [];
 
     /**
      * Returns last container instance.
      *
-     * @return Container
+     * @return Container Last container instance.
      */
     public static function instance()
     {
@@ -82,7 +85,7 @@ class Container implements ContainerInterface, ArrayAccess
      * @param mixed  $definition Service definition.
      * @param bool   $shared     Shared or not.
      *
-     * @return self
+     * @return $this
      */
     public function set($id, $definition, $shared = false)
     {
@@ -100,7 +103,7 @@ class Container implements ContainerInterface, ArrayAccess
      * @param string $id         Service id.
      * @param mixed  $definition Service definition.
      *
-     * @return self
+     * @return $this
      */
     public function shared($id, $definition)
     {
@@ -147,7 +150,7 @@ class Container implements ContainerInterface, ArrayAccess
     }
 
     /**
-     *
+     * Resolve callback dependencies and executes him.
      *
      * @param callable $callback
      * @param array    $params
@@ -205,14 +208,12 @@ class Container implements ContainerInterface, ArrayAccess
                 } else {
                     throw new NotFoundException('');
                 }
-                break;
             case 'object':
                 if ($definition instanceof Closure) {
                     return call_user_func_array($definition->bindTo($this), $params);
                 } else {
                     return clone $definition;
                 }
-                break;
             default:
                 throw new ContainerException('');
         }
@@ -243,14 +244,14 @@ class Container implements ContainerInterface, ArrayAccess
             if (array_key_exists($parameter->name, $parameters)) {
                 $resolved[] = $parameters[$parameter->name];
             } else if (($type = $parameter->getClass())) {
-                try{
+                try {
                     $params = [];
                     if (array_key_exists($type->name, $parameters)) {
                         $params = $parameters[$type->name];
                         unset($parameters[$type->name]);
                     }
                     $resolved[] = $this->get($type->name, $params);
-                } catch(ContainerException $e){
+                } catch (ContainerException $e) {
                     if ($parameter->isOptional()) {
                         $resolved[] = $parameter->getDefaultValue();
                     } else {
@@ -316,7 +317,7 @@ class Container implements ContainerInterface, ArrayAccess
      */
     public function isShared($id)
     {
-        return $this->has($id)?$this->services[$id]['shared']:false;
+        return $this->has($id) ? $this->services[$id]['shared'] : false;
     }
 
     /**

@@ -6,18 +6,16 @@ use Lebran\Container;
 /**
  * It's trait help you realize InjectableInterface.
  *
- * @package    Di
- * @version    2.0.0
+ * @package    Container
+ * @version    1.0
  * @author     Roman Kritskiy <itoktor@gmail.com>
- * @license    GNU Licence
- * @copyright  2014 - 2015 Roman Kritskiy
+ * @license    MIT
+ * @copyright  2015 - 2016 Roman Kritskiy
  */
 trait InjectableTrait
 {
     /**
-     * Store for di container.
-     *
-     * @var
+     * @var Container Store for di container.
      */
     protected $di;
 
@@ -26,7 +24,7 @@ trait InjectableTrait
      *
      * @param Container $di Container object.
      *
-     * @return self
+     * @return $this
      */
     public function setDi(Container $di)
     {

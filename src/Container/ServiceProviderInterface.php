@@ -4,16 +4,24 @@ namespace Lebran\Container;
 use Lebran\Container;
 
 /**
- * Interface ServiceProviderInterface
+ * It's trait help you realize InjectableInterface.
  *
- * @package Lebran\Di
+ * @package    Container
+ * @version    1.0
+ * @author     Roman Kritskiy <itoktor@gmail.com>
+ * @license    MIT
+ * @copyright  2015 - 2016 Roman Kritskiy
  */
 interface ServiceProviderInterface
 {
     /**
-     * @param Container $di
+     * Lebran\Container service provider interface.
      *
-     * @return mixed
+     * This method should only be used to configure services and parameters.
+     *
+     * @param Container $di The container instance.
+     *
+     * @return void
      */
     public function register(Container $di);
 }

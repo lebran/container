@@ -6,6 +6,7 @@ use ArrayAccess;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionFunction;
+use ReflectionParameter;
 use Lebran\Container\NotFoundException;
 use Lebran\Container\InjectableInterface;
 use Interop\Container\ContainerInterface;
@@ -79,7 +80,20 @@ class Container implements ContainerInterface, ArrayAccess
     }
 
     /**
-     * Registers a service in the services container.
+     * Merge two containers into one.
+     *
+     * @param ServiceProviderInterface $provider Service provider.
+     *
+     * @return self
+     */
+    public function register(ServiceProviderInterface $provider)
+    {
+        $provider->register($this);
+        return $this;
+    }
+
+    /**
+     * Registers a service in the container.
      *
      * @param string $id         Service id.
      * @param mixed  $definition Service definition.
@@ -89,16 +103,27 @@ class Container implements ContainerInterface, ArrayAccess
      */
     public function set($id, $definition, $shared = false)
     {
-        $id = trim(trim($id, '\\'));
         if (is_string($definition)) {
-            $definition = trim(trim($definition, '\\'));
+            $definition = $this->normalize($definition);
         }
-        $this->services[$id] = compact('definition', 'shared');
+        $this->services[$this->normalize($id)] = compact('definition', 'shared');
         return $this;
     }
 
     /**
-     * Registers a shared service in the services container.
+     * Normalize service name.
+     *
+     * @param string $id Service id.
+     *
+     * @return string Normalized name.
+     */
+    protected function normalize($id)
+    {
+        return trim(trim($id), '\\');
+    }
+
+    /**
+     * Registers a shared service in the container.
      *
      * @param string $id         Service id.
      * @param mixed  $definition Service definition.
@@ -111,34 +136,59 @@ class Container implements ContainerInterface, ArrayAccess
     }
 
     /**
+     * Check whether the service is shared or not.
+     *
+     * @param string $id Service id.
+     *
+     * @return bool True if shared, false - not.
+     */
+    public function isShared($id)
+    {
+        return $this->has($id) ? $this->services[$id]['shared'] : false;
+    }
+
+    /**
+     * Sets if the service is shared or not.
+     *
+     * @param string $id     Service id.
+     * @param bool   $shared Shared or not.
+     *
+     * @return self
+     * @throws NotFoundException No entry was found for this identifier.
+     */
+    public function setShared($id, $shared = true)
+    {
+        if ($this->has($id)) {
+            $this->services[$id]['shared'] = $shared;
+        } else {
+            throw new NotFoundException('');
+        }
+        return $this;
+    }
+
+    /**
      * Finds an entry of the container by its identifier and returns it.
      *
-     * @param string $id     Identifier of the entry to look for.
-     * @param array  $params Parameter for service construct.
+     * @param string $id         Identifier of the entry to look for.
+     * @param array  $parameters Parameter for service construct.
      *
      * @throws NotFoundException  No entry was found for this identifier.
      * @throws ContainerException Error while retrieving the entry.
      *
      * @return mixed Entry.
      */
-    public function get($id, array $params = [])
+    public function get($id, array $parameters = [])
     {
         if (array_key_exists($id, $this->shared)) {
             return $this->shared[$id];
         }
 
-        $shared = false;
-        if (array_key_exists($id, $this->services)) {
-            $definition = $this->services[$id]['definition'];
-            if ($this->services[$id]['shared']) {
-                $shared = true;
-            }
-        } else {
-            $definition = $id;
-        }
-        $instance = $this->resolveService($definition, $params);
+        $instance = $this->resolveService(
+            array_key_exists($id, $this->services) ? $this->services[$id]['definition'] : $id,
+            $parameters
+        );
 
-        if ($shared) {
+        if ($this->services[$id]['shared']) {
             $this->shared[$id] = $instance;
         }
 
@@ -150,16 +200,55 @@ class Container implements ContainerInterface, ArrayAccess
     }
 
     /**
+     * Resolves the service.
+     *
+     * @param mixed $definition The definition of service.
+     * @param array $parameters Parameters for service construct.
+     *
+     * @return mixed Entry.
+     * @throws ContainerException Error while retrieving the entry.
+     * @throws NotFoundException No entry was found for this identifier.
+     */
+    protected function resolveService($definition, array $parameters = [])
+    {
+        switch (gettype($definition)) {
+            case 'string':
+                if (array_key_exists($definition, $this->services)) {
+                    return $this->get($definition, $parameters);
+                } else if (class_exists($definition)) {
+                    $reflection = new ReflectionClass($definition);
+                    if (($construct = $reflection->getConstructor())) {
+                        $parameters = $this->resolveOptions(
+                            $construct->getParameters(),
+                            $parameters
+                        );
+                    }
+                    return $reflection->newInstanceArgs($parameters);
+                } else {
+                    throw new NotFoundException('');
+                }
+            case 'object':
+                if ($definition instanceof Closure) {
+                    return call_user_func_array($definition->bindTo($this), $parameters);
+                } else {
+                    return clone $definition;
+                }
+            default:
+                throw new ContainerException('Type of definition is not correct.');
+        }
+    }
+
+    /**
      * Resolve callback dependencies and executes him.
      *
      * @param callable $callback
-     * @param array    $params
+     * @param array    $parameters
      *
      * @return mixed
      * @throws ContainerException Error while retrieving the entry.
      * @throws NotFoundException No entry was found for this identifier.
      */
-    public function call(callable $callback, array $params = [])
+    public function call(callable $callback, array $parameters = [])
     {
         if (is_string($callback) && strpos($callback, '::') === true) {
             $callback = explode('::', $callback);
@@ -174,53 +263,13 @@ class Container implements ContainerInterface, ArrayAccess
             $callback,
             $this->resolveOptions(
                 $reflection->getParameters(),
-                $params
+                $parameters
             )
         );
     }
 
     /**
-     * Resolves the service.
-     *
-     * @param mixed $definition The definition of service.
-     * @param array $params     Parameters for service construct.
-     *
-     * @return mixed Entry.
-     * @throws ContainerException Error while retrieving the entry.
-     * @throws NotFoundException No entry was found for this identifier.
-     */
-    protected function resolveService($definition, array $params)
-    {
-        switch (gettype($definition)) {
-            case 'string':
-                if (array_key_exists($definition, $this->services)) {
-                    return $this->get($definition, $params);
-                } else if (class_exists($definition)) {
-                    $parameters = [];
-                    $reflection = new ReflectionClass($definition);
-                    if (($construct = $reflection->getConstructor())) {
-                        $parameters = $this->resolveOptions(
-                            $construct->getParameters(),
-                            $params
-                        );
-                    }
-                    return $reflection->newInstanceArgs($parameters);
-                } else {
-                    throw new NotFoundException('');
-                }
-            case 'object':
-                if ($definition instanceof Closure) {
-                    return call_user_func_array($definition->bindTo($this), $params);
-                } else {
-                    return clone $definition;
-                }
-            default:
-                throw new ContainerException('');
-        }
-    }
-
-    /**
-     * Resolve parameters of service construct.
+     * Resolve parameters of service.
      *
      * @param array $dependencies
      * @param array $parameters
@@ -231,6 +280,7 @@ class Container implements ContainerInterface, ArrayAccess
      */
     protected function resolveOptions(array $dependencies, array $parameters)
     {
+        $resolved = [];
         foreach ($parameters as $key => $value) {
             if (is_numeric($key)) {
                 unset($parameters[$key]);
@@ -238,32 +288,20 @@ class Container implements ContainerInterface, ArrayAccess
             }
         }
 
-        $resolved = [];
         foreach ($dependencies as $parameter) {
-            /** @var \ReflectionParameter $parameter */
+            /** @var ReflectionParameter $parameter */
             if (array_key_exists($parameter->name, $parameters)) {
                 $resolved[] = $parameters[$parameter->name];
             } else if (($type = $parameter->getClass())) {
-                try {
-                    $params = [];
-                    if (array_key_exists($type->name, $parameters)) {
-                        $params = $parameters[$type->name];
-                        unset($parameters[$type->name]);
-                    }
-                    $resolved[] = $this->get($type->name, $params);
-                } catch (ContainerException $e) {
-                    if ($parameter->isOptional()) {
-                        $resolved[] = $parameter->getDefaultValue();
-                    } else {
-                        throw $e;
-                    }
-                }
+                $type       = $type->name;
+                $resolved[] = $this->get(
+                    $type,
+                    array_key_exists($type, $parameters) ? $parameters[$type] : []
+                );
+            } else if ($parameter->isDefaultValueAvailable()) {
+                $resolved[] = $parameter->getDefaultValue();
             } else {
-                if ($parameter->isOptional()) {
-                    $resolved[] = $parameter->getDefaultValue();
-                } else {
-                    throw new ContainerException('');
-                }
+                throw new ContainerException('Parameter "'.$parameter->name.'" not passed.');
             }
         }
 
@@ -293,47 +331,6 @@ class Container implements ContainerInterface, ArrayAccess
     public function has($id)
     {
         return array_key_exists($id, $this->services);
-    }
-
-    /**
-     * Merge two containers into one.
-     *
-     * @param ServiceProviderInterface $provider Another container.
-     *
-     * @return self
-     */
-    public function register(ServiceProviderInterface $provider)
-    {
-        $provider->register($this);
-        return $this;
-    }
-
-    /**
-     * Check whether the service is shared or not.
-     *
-     * @param string $id Service id.
-     *
-     * @return bool True if shared, false - not.
-     */
-    public function isShared($id)
-    {
-        return $this->has($id) ? $this->services[$id]['shared'] : false;
-    }
-
-    /**
-     * Sets if the service is shared or not.
-     *
-     * @param string $id     Service id.
-     * @param bool   $shared Shared or not.
-     *
-     * @return self
-     */
-    public function setShared($id, $shared = true)
-    {
-        if ($this->has($id)) {
-            $this->services[$id]['shared'] = $shared;
-        }
-        return $this;
     }
 
     /**
@@ -399,7 +396,7 @@ class Container implements ContainerInterface, ArrayAccess
      */
     public function __set($id, $definition)
     {
-        $this->set($id, $definition, true);
+        $this->shared($id, $definition);
     }
 
     /**

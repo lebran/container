@@ -46,6 +46,8 @@ use Lebran\Container\ServiceProviderInterface;
  */
 class Container implements ContainerInterface, ArrayAccess
 {
+    const MAX_DEPENDENCY_LEVEL = 30;
+
     /**
      * @var self Store for last container instance
      */
@@ -60,6 +62,11 @@ class Container implements ContainerInterface, ArrayAccess
      * @var array Store for shared services.
      */
     protected $shared = [];
+
+    /**
+     * @var int
+     */
+    protected $level = 0;
 
     /**
      * Returns last container instance.
@@ -100,6 +107,7 @@ class Container implements ContainerInterface, ArrayAccess
      * @param bool   $shared     Shared or not.
      *
      * @return $this
+     * @throws ContainerException Error while retrieving the entry.
      */
     public function set($id, $definition, $shared = false)
     {
@@ -179,23 +187,27 @@ class Container implements ContainerInterface, ArrayAccess
      */
     public function get($id, array $parameters = [])
     {
+        if($this->level++ > static::MAX_DEPENDENCY_LEVEL){
+            throw new ContainerException('Circular dependency.');
+        }
+
         if (array_key_exists($id, $this->shared)) {
             return $this->shared[$id];
         }
 
         $instance = $this->resolveService(
-            array_key_exists($id, $this->services) ? $this->services[$id]['definition'] : $id,
+            $this->has($id) ? $this->services[$id]['definition'] : $id,
             $parameters
         );
 
-        if ($this->services[$id]['shared']) {
+        if ($this->has($id) && $this->services[$id]['shared']) {
             $this->shared[$id] = $instance;
         }
 
         if ($instance instanceof InjectableInterface) {
             $instance->setDi($this);
         }
-
+        $this->level = 0;
         return $instance;
     }
 
@@ -213,7 +225,7 @@ class Container implements ContainerInterface, ArrayAccess
     {
         switch (gettype($definition)) {
             case 'string':
-                if (array_key_exists($definition, $this->services)) {
+                if ($this->has($definition)) {
                     return $this->get($definition, $parameters);
                 } else if (class_exists($definition)) {
                     $reflection = new ReflectionClass($definition);
@@ -250,9 +262,6 @@ class Container implements ContainerInterface, ArrayAccess
      */
     public function call(callable $callback, array $parameters = [])
     {
-        if (is_string($callback) && strpos($callback, '::') === true) {
-            $callback = explode('::', $callback);
-        }
         if (is_array($callback)) {
             $reflection = new ReflectionMethod($callback[0], $callback[1]);
         } else {
